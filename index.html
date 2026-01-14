@@ -3,36 +3,74 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Anfahrtskosten – Schnellrechner</title>
+<title>Anfahrtskosten – Schnellrechner | SANVARO</title>
+
 <style>
-body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#f6f7fb;margin:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f5f6fa;margin:0}
 .wrap{max-width:900px;margin:40px auto;padding:0 16px}
-.card{background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08);padding:20px}
-h1{margin:0 0 8px;font-size:22px}
+.card{background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08);padding:24px}
+h1{margin:0 0 8px;font-size:24px}
 p{margin:8px 0;color:#333}
-.row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
-input{flex:1;min-width:260px;padding:12px 14px;border:1px solid #d7dbe7;border-radius:12px;font-size:16px}
-button{padding:12px 16px;border:0;border-radius:12px;background:#111;color:#fff;font-size:16px;cursor:pointer}
-.out{margin-top:16px;padding:14px;border:1px dashed #c8cde0;border-radius:12px;background:#fbfcff;white-space:pre-line}
-.small{font-size:12px;color:#666}
+.small{font-size:13px;color:#666}
+.grid{display:grid;grid-template-columns:2fr 1fr 1fr 2fr;gap:12px;margin-top:16px}
+label{font-size:13px;font-weight:600;color:#444}
+input{padding:12px 14px;border:1px solid #d7dbe7;border-radius:12px;font-size:16px;width:100%}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+button{padding:12px 18px;border:0;border-radius:12px;background:#111;color:#fff;font-size:16px;cursor:pointer}
+button.alt{background:#fff;color:#111;border:1px solid #d7dbe7}
+.out{margin-top:20px;padding:16px;border:1px dashed #c8cde0;border-radius:12px;background:#fbfcff;white-space:pre-line}
+.suggest{margin-top:10px;border:1px solid #e1e5f2;border-radius:12px;overflow:hidden;display:none}
+.suggest button{all:unset;display:block;width:100%;padding:12px 14px;cursor:pointer}
+.suggest button:hover{background:#f1f3ff}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:18px}
-.modal{background:#fff;border-radius:16px;max-width:520px;width:100%;padding:18px}
+.modal{background:#fff;border-radius:16px;max-width:520px;width:100%;padding:20px}
 .modal h2{margin:0 0 8px;font-size:18px}
-.actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
-.btn2{background:#fff;color:#111;border:1px solid #d7dbe7}
+.actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+a.phone{color:#111;text-decoration:none;font-weight:600}
 </style>
 </head>
+
 <body>
 <div class="wrap">
   <div class="card">
     <h1>Anfahrtskosten – Schnellrechner</h1>
     <p><strong>Startpunkt:</strong> Oberstreu, Holzweg 15</p>
-    <div class="row">
-      <input id="addr" placeholder="z. B. Weserstraße 21B, 27568 Bremerhaven">
-      <button id="go">Berechnen</button>
+    <p class="small">
+      Bitte geben Sie Ihre Adresse ein (z. B. <em>Musterstraße 1, 12345 Musterhausen</em>).  
+      Die Berechnung erfolgt auf Basis der <strong>realen Fahrstrecke</strong>.
+    </p>
+
+    <div class="grid">
+      <div>
+        <label>Straße</label>
+        <input id="street" placeholder="z. B. Musterstraße">
+      </div>
+      <div>
+        <label>Hausnr.</label>
+        <input id="hnr" placeholder="z. B. 21B">
+      </div>
+      <div>
+        <label>PLZ</label>
+        <input id="zip" placeholder="z. B. 12345">
+      </div>
+      <div>
+        <label>Ort</label>
+        <input id="city" placeholder="z. B. Musterhausen">
+      </div>
     </div>
-    <p class="small">Bitte Straße + PLZ + Ort eingeben (zuverlässigste Ergebnisse).</p>
+
+    <div class="row">
+      <button id="calc">Berechnen</button>
+      <button id="pick" class="alt">Adressvorschläge anzeigen</button>
+    </div>
+
+    <div id="suggest" class="suggest"></div>
     <div id="out" class="out" style="display:none;"></div>
+
+    <p class="small">
+      In den Anfahrtskosten sind Fahrtzeit (Hin- & Rückfahrt), Fahrzeug-, Organisations-  
+      sowie Personalkosten enthalten.
+    </p>
   </div>
 </div>
 
@@ -40,81 +78,104 @@ button{padding:12px 16px;border:0;border-radius:12px;background:#111;color:#fff;
   <div class="modal">
     <h2>Individuelles Angebot erforderlich</h2>
     <p class="small">
-      Ab 400 km erstellen wir ein projektbezogenes Angebot.
+      Bei Entfernungen über 400 km kalkulieren wir die Anfahrt projektbezogen.
     </p>
     <p>
       <strong>E-Mail:</strong> <a href="mailto:kontakt@sanvaro.de">kontakt@sanvaro.de</a><br>
-      <strong>Telefon:</strong> <a href="tel:+49XXXXXXXXXX">+49 … bitte von sanvaro.de einsetzen</a>
+      <strong>Sascha Muffert:</strong> <a class="phone" href="tel:+4917624740989">0176 2474 0989</a><br>
+      <strong>Justin Grigo:</strong> <a class="phone" href="tel:+4917661907607">0176 6190 7607</a>
     </p>
     <div class="actions">
-      <button class="btn2" onclick="closeModal()">Schließen</button>
+      <button class="alt" onclick="closeModal()">Schließen</button>
     </div>
   </div>
 </div>
 
 <script>
-// =====================
-// KONFIG
-// =====================
-const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImRlNDE0N2JiNmZkYjRmMzY5ZTMzYmI3NzMxMWJhNmJlIiwiaCI6Im11cm11cjY0In0="; // <-- NUR HIER einsetzen
-const ORIGIN = [10.2830, 50.4040]; // Oberstreu (ca.)
+const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImRlNDE0N2JiNmZkYjRmMzY5ZTMzYmI3NzMxMWJhNmJlIiwiaCI6Im11cm11cjY0In0=";
+const ORIGIN = [10.2830, 50.4040];
 
-// =====================
-// HILFSFUNKTIONEN
-// =====================
-const out = document.getElementById('out');
-function show(msg){ out.style.display='block'; out.textContent=msg; }
-function openModal(){ document.getElementById('overlay').style.display='flex'; }
-function closeModal(){ document.getElementById('overlay').style.display='none'; }
+const ZONES = [
+  {min:0, max:50,  lo:69,  hi:119},
+  {min:50,max:100, lo:119, hi:179},
+  {min:100,max:200,lo:179, hi:299},
+  {min:200,max:400,lo:299, hi:499},
+  {min:400,max:1e9,contact:true}
+];
 
-// =====================
-// API
-// =====================
-async function geocode(addr){
-  const url = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(addr)}&boundary.country=DE`;
-  const r = await fetch(url);
-  const d = await r.json();
-  if(!d.features || !d.features.length) throw new Error("Adresse nicht gefunden.");
-  return d.features[0].geometry.coordinates;
+const out = document.getElementById("out");
+const suggest = document.getElementById("suggest");
+
+function show(t){out.style.display="block";out.textContent=t}
+function openModal(){document.getElementById("overlay").style.display="flex"}
+function closeModal(){document.getElementById("overlay").style.display="none"}
+
+function buildQuery(){
+  let p=[];
+  if(street.value) p.push(street.value+" "+hnr.value);
+  if(zip.value) p.push(zip.value);
+  if(city.value) p.push(city.value);
+  p.push("Deutschland");
+  return p.join(", ");
 }
 
-async function route(origin, dest){
-  const r = await fetch("https://api.openrouteservice.org/v2/directions/driving-car",{
+function priceFor(km){
+  let z=ZONES.find(x=>km<=x.max);
+  if(z.contact) return null;
+  let t=(km-z.min)/(z.max-z.min);
+  return Math.round(z.lo+t*(z.hi-z.lo));
+}
+
+async function geocode(q){
+  let u=`https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(q)}&boundary.country=DE`;
+  let r=await fetch(u); let d=await r.json();
+  if(!d.features?.length) throw Error("Adresse nicht gefunden.");
+  return d.features.map(f=>({label:f.properties.label,coord:f.geometry.coordinates}));
+}
+
+async function route(dest){
+  let r=await fetch("https://api.openrouteservice.org/v2/directions/driving-car",{
     method:"POST",
-    headers:{ "Authorization": ORS_API_KEY, "Content-Type":"application/json" },
-    body: JSON.stringify({ coordinates:[origin,dest] })
+    headers:{Authorization:ORS_API_KEY,"Content-Type":"application/json"},
+    body:JSON.stringify({coordinates:[ORIGIN,dest]})
   });
-  const d = await r.json().catch(()=>({}));
-  if(!r.ok || d?.error) throw new Error(d?.error?.message || "Routing-Fehler.");
-  const p = d?.features?.[0]?.properties;
-  const seg = p?.segments?.[0];
-  const sum = p?.summary;
-  const dist = (seg?.distance ?? sum?.distance);
-  const dur  = (seg?.duration ?? sum?.duration);
-  if(dist==null || dur==null) throw new Error("Route konnte nicht ausgewertet werden.");
-  return { km: dist/1000, min: dur/60 };
+  let d=await r.json();
+  let p=d.features?.[0]?.properties;
+  let s=p?.segments?.[0]||p?.summary;
+  if(!s) throw Error("Route konnte nicht ausgewertet werden.");
+  return {km:s.distance/1000,min:s.duration/60};
 }
 
-// =====================
-// HAUPT
-// =====================
-document.getElementById('go').onclick = async ()=>{
-  const a = document.getElementById('addr').value.trim();
-  if(!a){ show("Bitte Adresse eingeben."); return; }
-  show("Route wird berechnet …");
-  try{
-    const dest = await geocode(a);
-    const r = await route(ORIGIN, dest);
-    if(r.km > 400){
-      openModal();
-      show(`Entfernung: ${r.km.toFixed(1)} km\nFahrzeit (einfach): ${r.min.toFixed(0)} min`);
-      return;
-    }
-    show(`Entfernung: ${r.km.toFixed(1)} km\nFahrzeit (einfach): ${r.min.toFixed(0)} min\n\nAnfahrtskosten gemäß Zone.`);
-  }catch(e){
-    show("Fehler: " + e.message);
+async function calculateWith(c,label){
+  let r=await route(c);
+  if(r.km>400){openModal()}
+  let price=priceFor(r.km);
+  show(
+    `Adresse: ${label}\n`+
+    `Entfernung: ${r.km.toFixed(1)} km\n`+
+    `Fahrzeit (einfach): ${Math.round(r.min)} min\n\n`+
+    (price?`Voraussichtliche Anfahrtskosten: ${price} €`:
+     `Entfernung über 400 km – bitte kontaktieren Sie uns.`)
+  );
+}
+
+async function calculate(){
+  show("Adresse wird geprüft …");
+  let list=await geocode(buildQuery());
+  if(list.length===1) calculateWith(list[0].coord,list[0].label);
+  else{
+    suggest.innerHTML=""; suggest.style.display="block";
+    list.forEach(i=>{
+      let b=document.createElement("button");
+      b.textContent=i.label;
+      b.onclick=()=>{suggest.style.display="none";calculateWith(i.coord,i.label)};
+      suggest.appendChild(b);
+    });
   }
-};
+}
+
+calc.onclick=calculate;
+pick.onclick=calculate;
 </script>
 </body>
 </html>
