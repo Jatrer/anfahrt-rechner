@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Anfahrtskosten – Schnellrechner</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#f6f7fb;color:#111}
+    .wrap{max-width:880px;margin:40px auto;padding:0 16px}
+    .card{background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08);padding:20px}
+    h1{font-size:22px;margin:0 0 10px}
+    p{margin:8px 0;color:#333;line-height:1.45}
+    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+    input{flex:1;min-width:240px;padding:12px 14px;border:1px solid #d7dbe7;border-radius:12px;font-size:16px}
+    button{padding:12px 14px;border:0;border-radius:12px;font-size:16px;cursor:pointer;background:#111;color:#fff}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .hint{font-size:13px;color:#555;margin-top:10px}
+    .out{margin-top:16px;padding:14px;border:1px dashed #c8cde0;border-radius:12px;background:#fbfcff}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .k{color:#444;font-size:13px}
+    .v{font-weight:650}
+    .bad{color:#8a1f1f}
+    .ok{color:#0b6b2b}
+    code{background:#eef1ff;padding:2px 6px;border-radius:6px}
+    .small{font-size:12px;color:#666}
+    .muted{color:#666}
+    /* Modal */
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
+    .modal{background:#fff;border-radius:16px;max-width:520px;width:100%;box-shadow:0 18px 60px rgba(0,0,0,.25);padding:18px}
+    .modal h2{margin:0 0 8px;font-size:18px}
+    .modal .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .btn2{background:#fff;color:#111;border:1px solid #d7dbe7}
+    a.phone{color:#111;text-decoration:none;font-weight:650}
+    .pill{display:inline-block;background:#eef1ff;border-radius:999px;padding:4px 10px;font-size:12px;color:#2b2f55}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Anfahrtskosten – Schnellrechner</h1>
+      <p><strong>Startpunkt:</strong> Oberstreu, Holzweg 15</p>
+      <p class="muted">
+        Geben Sie Ihre Adresse ein. Wir ermitteln die <strong>reale Fahrstrecke</strong> (Straßenroute) und zeigen Ihnen den voraussichtlichen Anfahrtskostenbetrag.
+      </p>
+
+      <div class="row">
+        <input id="addr" placeholder="Ihre Adresse eingeben (z.B. Frankfurt am Main, Musterstraße 1)" autocomplete="street-address" />
+        <button id="go">Berechnen</button>
+      </div>
+
+      <div class="hint">
+        In den Anfahrtskosten sind <strong>Fahrtzeit (Hin- & Rückfahrt)</strong>, <strong>Fahrzeugkosten</strong> (Sprit, Verschleiß, Versicherung) sowie <strong>interne Einsatz-/Mitarbeiterzeiten</strong> berücksichtigt.
+        <span class="pill">ohne Überraschungen</span>
+      </div>
+
+      <div id="out" class="out" style="display:none;"></div>
+
+      <hr style="border:0;border-top:1px solid #eef0f6;margin:16px 0;">
+      <p class="small">
+        ⚠️ Technischer Hinweis: Für die Routenberechnung wird ein API‑Schlüssel benötigt (OpenRouteService). Für öffentliche Kundennutzung sollte der Schlüssel serverseitig geschützt werden (Proxy/Backend).
+      </p>
+    </div>
+  </div>
+
+  <!-- Kontakt-Modal -->
+  <div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="ctitle">
+    <div class="modal">
+      <h2 id="ctitle">Für diese Entfernung erstellen wir ein individuelles Angebot</h2>
+      <p class="muted">
+        Ab einer größeren Distanz kalkulieren wir die Anfahrt projektbezogen (z. B. Tourenplanung, ggf. Mehrtageseinsatz). Bitte kontaktieren Sie uns – wir nennen Ihnen den Betrag vorab.
+      </p>
+      <p><strong>Telefon:</strong> <a class="phone" href="tel:+49XXXXXXXXXX">+49 XX XXXX XXXX</a><br>
+         <strong>E‑Mail:</strong> <a href="mailto:info@ihrefirma.de">info@ihrefirma.de</a>
+      </p>
+      <div class="actions">
+        <button id="close" class="btn2">Schließen</button>
+        <button id="copy">Text kopieren</button>
+      </div>
+      <p class="small">Bitte tragen Sie Telefon/E‑Mail im Code unten an der markierten Stelle ein.</p>
+    </div>
+  </div>
+
+<script>
+/**
+ * ========= KONFIGURATION =========
+ * 1) OpenRouteService API Key eintragen:
+ */
+const ORS_API_KEY = "28cc213cd24b0f7742e5fa281d7035155rkz6rSm9zI";
+
+/**
+ * 2) Startpunkt (Oberstreu, Holzweg 15) als Koordinaten.
+ *    Format: [lon, lat]
+ *    Hinweis: Das ist ein Näherungswert. Für maximale Genauigkeit kann man es exakt setzen.
+ */
+const ORIGIN = [10.2830, 50.4040];
+
+/**
+ * 3) Zonenmodell (gleitender Preis innerhalb der Zone):
+ *    - min_km/max_km: Distanzbereich (Fahrstrecke)
+ *    - min_price/max_price: Preis am unteren/oberen Rand der Zone
+ *
+ *    Beispiel: Bei 55 km liegt der Preis näher an min_price der Zone 2,
+ *    bei 99 km näher an max_price der Zone 2.
+ *
+ *    Wichtig: Diese Zahlen sind Platzhalter/Startwerte. Passen Sie sie an Ihr Modell an.
+ */
+const ZONES = [
+  // 0–50 km: nicht kostenlos, aber attraktiv
+  { name: "Zone 1", min_km: 0,   max_km: 50,  min_price: 59,  max_price: 99  },
+
+  // 50–100 km
+  { name: "Zone 2", min_km: 50,  max_km: 100, min_price: 99,  max_price: 149 },
+
+  // 100–200 km
+  { name: "Zone 3", min_km: 100, max_km: 200, min_price: 149, max_price: 249 },
+
+  // 200–400 km
+  { name: "Zone 4", min_km: 200, max_km: 400, min_price: 249, max_price: 449 },
+
+  // ab 400 km: individuell
+  { name: "Zone 5", min_km: 400, max_km: Infinity, contact_only: true }
+];
+
+/**
+ * ========= HELFER =========
+ */
+const fmtKm = (km) => (Math.round(km * 10) / 10).toFixed(1) + " km";
+const fmtMin = (sec) => {
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h} h ${m} min`;
+};
+
+function escapeHtml(s){
+  return s.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
+
+function zoneForDistance(km){
+  return ZONES.find(z => km <= z.max_km) || ZONES[ZONES.length-1];
+}
+
+function priceForZoneAtKm(zone, km){
+  // Gleitender Preis: linear innerhalb der Zone (unterer Rand -> min_price, oberer Rand -> max_price)
+  const span = (zone.max_km - zone.min_km);
+  const t = span > 0 ? (km - zone.min_km) / span : 1;
+  const raw = zone.min_price + Math.min(1, Math.max(0, t)) * (zone.max_price - zone.min_price);
+  // Runden auf volle Euro (oder auf 5er-Schritte, falls gewünscht)
+  return Math.round(raw);
+}
+
+async function geocodeORS(address){
+  const url = new URL("https://api.openrouteservice.org/geocode/search");
+  url.searchParams.set("api_key", ORS_API_KEY);
+  url.searchParams.set("text", address);
+  url.searchParams.set("size", "1");
+  url.searchParams.set("boundary.country", "DE");
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error("Adresse nicht gefunden / Geocoding fehlgeschlagen (" + res.status + ")");
+  const data = await res.json();
+  if (!data.features || !data.features.length) throw new Error("Adresse nicht gefunden.");
+  return data.features[0].geometry.coordinates; // [lon, lat]
+}
+
+async function routeORS(originLonLat, destLonLat){
+  const res = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
+    method: "POST",
+    headers: {
+      "Authorization": ORS_API_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ coordinates: [originLonLat, destLonLat] })
+  });
+  if (!res.ok) throw new Error("Routing fehlgeschlagen (" + res.status + ")");
+  const data = await res.json();
+  const seg = data?.features?.[0]?.properties?.segments?.[0];
+  if (!seg) throw new Error("Route konnte nicht ausgewertet werden.");
+  return { distance_m: seg.distance, duration_s: seg.duration };
+}
+
+function showOutput(html, isBad=false){
+  const out = document.getElementById("out");
+  out.style.display = "block";
+  out.innerHTML = html;
+  out.style.color = isBad ? "#8a1f1f" : "#111";
+}
+
+function openContact(km, addr){
+  const ov = document.getElementById("overlay");
+  ov.style.display = "flex";
+  // Copy helper text
+  const text = `Anfrage Anfahrt (Entfernung):\\nAdresse: ${addr}\\nErmittelte Fahrstrecke: ${km.toFixed(1)} km\\nBitte um Angebot.`;
+  ov.dataset.copy = text;
+}
+
+function closeContact(){
+  const ov = document.getElementById("overlay");
+  ov.style.display = "none";
+}
+
+async function handle(){
+  const addr = document.getElementById("addr").value.trim();
+  if (!addr) return;
+
+  if (!ORS_API_KEY || ORS_API_KEY.includes("YOUR_ORS_KEY_HERE")){
+    showOutput(`<p class="bad"><strong>API‑Key fehlt.</strong> Bitte tragen Sie Ihren OpenRouteService API‑Key im Code bei <code>ORS_API_KEY</code> ein.</p>`, true);
+    return;
+  }
+
+  const btn = document.getElementById("go");
+  btn.disabled = true;
+  showOutput(`<p>Berechne Route …</p>`);
+
+  try{
+    const dest = await geocodeORS(addr);
+    const r = await routeORS(ORIGIN, dest);
+    const km = r.distance_m / 1000;
+    const zone = zoneForDistance(km);
+
+    if (zone.contact_only){
+      showOutput(`
+        <p><strong>Hinweis:</strong> Für diese Entfernung erstellen wir ein individuelles Angebot.</p>
+        <div class="grid">
+          <div><div class="k">Ziel</div><div class="v">${escapeHtml(addr)}</div></div>
+          <div><div class="k">Fahrstrecke (Route)</div><div class="v">${fmtKm(km)}</div></div>
+          <div><div class="k">Fahrzeit (Route)</div><div class="v">${fmtMin(r.duration_s)}</div></div>
+          <div><div class="k">Nächster Schritt</div><div class="v">Kontakt aufnehmen</div></div>
+        </div>
+        <p class="small">Wir nennen Ihnen den Betrag vorab – transparent und passend zum Projekt.</p>
+        <button id="contactNow" style="margin-top:8px;">Kontakt</button>
+      `);
+      document.getElementById("contactNow").addEventListener("click", ()=>openContact(km, addr));
+      // Optional: Kontakt sofort öffnen:
+      openContact(km, addr);
+      return;
+    }
+
+    const price = priceForZoneAtKm(zone, km);
+
+    showOutput(`
+      <div class="grid">
+        <div><div class="k">Ziel</div><div class="v">${escapeHtml(addr)}</div></div>
+        <div><div class="k">Fahrstrecke (Route)</div><div class="v">${fmtKm(km)}</div></div>
+        <div><div class="k">Fahrzeit (Route)</div><div class="v">${fmtMin(r.duration_s)}</div></div>
+        <div><div class="k">Voraussichtliche Anfahrtskosten</div><div class="v ok">${price} €</div></div>
+      </div>
+      <p class="small">
+        Betrag basiert auf unserer Entfernungszone mit <strong>gleitender Berechnung innerhalb der Zone</strong>
+        (unterer Rand günstiger, oberer Rand teurer). Enthält Fahrtzeit (Hin-/Rückfahrt), Fahrzeugkosten sowie interne Einsatzzeiten.
+      </p>
+    `);
+
+  } catch(e){
+    showOutput(`<p class="bad"><strong>Fehler:</strong> ${escapeHtml(String(e.message || e))}</p>`, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// UI wiring
+document.getElementById("go").addEventListener("click", handle);
+document.getElementById("addr").addEventListener("keydown", (e)=>{ if(e.key==="Enter") handle(); });
+
+document.getElementById("close").addEventListener("click", closeContact);
+document.getElementById("overlay").addEventListener("click", (e)=>{ if(e.target.id==="overlay") closeContact(); });
+
+document.getElementById("copy").addEventListener("click", ()=>{
+  const ov = document.getElementById("overlay");
+  const txt = ov.dataset.copy || "";
+  navigator.clipboard?.writeText(txt);
+  alert("Text kopiert.");
+});
+</script>
+</body>
+</html>
