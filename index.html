@@ -1,178 +1,120 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Anfahrtskosten – Schnellrechner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <style>
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      background: #f6f6f6;
-      padding: 30px;
-    }
-    .box {
-      max-width: 600px;
-      margin: auto;
-      background: #fff;
-      padding: 25px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    h1 {
-      margin-top: 0;
-    }
-    input, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
-      font-size: 16px;
-    }
-    button {
-      cursor: pointer;
-    }
-    .result {
-      margin-top: 20px;
-      font-weight: bold;
-    }
-    .error {
-      color: red;
-      margin-top: 20px;
-    }
-    .info {
-      margin-top: 15px;
-      font-size: 14px;
-      color: #555;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Anfahrtskosten – Schnellrechner</title>
+<style>
+body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#f6f7fb;margin:0}
+.wrap{max-width:900px;margin:40px auto;padding:0 16px}
+.card{background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08);padding:20px}
+h1{margin:0 0 8px;font-size:22px}
+p{margin:8px 0;color:#333}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+input{flex:1;min-width:260px;padding:12px 14px;border:1px solid #d7dbe7;border-radius:12px;font-size:16px}
+button{padding:12px 16px;border:0;border-radius:12px;background:#111;color:#fff;font-size:16px;cursor:pointer}
+.out{margin-top:16px;padding:14px;border:1px dashed #c8cde0;border-radius:12px;background:#fbfcff;white-space:pre-line}
+.small{font-size:12px;color:#666}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:18px}
+.modal{background:#fff;border-radius:16px;max-width:520px;width:100%;padding:18px}
+.modal h2{margin:0 0 8px;font-size:18px}
+.actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.btn2{background:#fff;color:#111;border:1px solid #d7dbe7}
+</style>
 </head>
-
 <body>
-  <div class="box">
+<div class="wrap">
+  <div class="card">
     <h1>Anfahrtskosten – Schnellrechner</h1>
+    <p><strong>Startpunkt:</strong> Oberstreu, Holzweg 15</p>
+    <div class="row">
+      <input id="addr" placeholder="z. B. Weserstraße 21B, 27568 Bremerhaven">
+      <button id="go">Berechnen</button>
+    </div>
+    <p class="small">Bitte Straße + PLZ + Ort eingeben (zuverlässigste Ergebnisse).</p>
+    <div id="out" class="out" style="display:none;"></div>
+  </div>
+</div>
 
-    <p>Geben Sie Ihre Adresse ein:</p>
-    <input id="address" placeholder="z. B. Weserstraße 21B, 27568 Bremerhaven">
-
-    <button onclick="calculate()">Berechnen</button>
-
-    <div id="output" class="result"></div>
-    <div id="error" class="error"></div>
-
-    <div class="info">
-      Die Berechnung basiert auf der realen Fahrstrecke.<br>
-      Fahrtzeit (Hin- & Rückfahrt), Fahrzeug- und Personalkosten sind enthalten.
+<div id="overlay" class="overlay">
+  <div class="modal">
+    <h2>Individuelles Angebot erforderlich</h2>
+    <p class="small">
+      Ab 400 km erstellen wir ein projektbezogenes Angebot.
+    </p>
+    <p>
+      <strong>E-Mail:</strong> <a href="mailto:kontakt@sanvaro.de">kontakt@sanvaro.de</a><br>
+      <strong>Telefon:</strong> <a href="tel:+49XXXXXXXXXX">+49 … bitte von sanvaro.de einsetzen</a>
+    </p>
+    <div class="actions">
+      <button class="btn2" onclick="closeModal()">Schließen</button>
     </div>
   </div>
+</div>
 
 <script>
-/* ==========================
-   KONFIGURATION
-   ========================== */
+// =====================
+// KONFIG
+// =====================
+const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImRlNDE0N2JiNmZkYjRmMzY5ZTMzYmI3NzMxMWJhNmJlIiwiaCI6Im11cm11cjY0In0="; // <-- NUR HIER einsetzen
+const ORIGIN = [10.2830, 50.4040]; // Oberstreu (ca.)
 
-// 🔴 HIER DEIN OPENROUTESERVICE API-KEY EINTRAGEN
-const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImRlNDE0N2JiNmZkYjRmMzY5ZTMzYmI3NzMxMWJhNmJlIiwiaCI6Im11cm11cjY0In0=";
+// =====================
+// HILFSFUNKTIONEN
+// =====================
+const out = document.getElementById('out');
+function show(msg){ out.style.display='block'; out.textContent=msg; }
+function openModal(){ document.getElementById('overlay').style.display='flex'; }
+function closeModal(){ document.getElementById('overlay').style.display='none'; }
 
-// Startpunkt: Oberstreu (Holzweg 15 – ca.)
-const ORIGIN = [10.2830, 50.4040];
-
-/* ==========================
-   HILFSFUNKTIONEN
-   ========================== */
-
-function showError(msg) {
-  document.getElementById("error").innerText = msg;
-  document.getElementById("output").innerText = "";
+// =====================
+// API
+// =====================
+async function geocode(addr){
+  const url = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(addr)}&boundary.country=DE`;
+  const r = await fetch(url);
+  const d = await r.json();
+  if(!d.features || !d.features.length) throw new Error("Adresse nicht gefunden.");
+  return d.features[0].geometry.coordinates;
 }
 
-function showResult(msg) {
-  document.getElementById("output").innerText = msg;
-  document.getElementById("error").innerText = "";
-}
-
-/* ==========================
-   API FUNKTIONEN
-   ========================== */
-
-async function geocode(address) {
-  const url = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(address)}&boundary.country=DE`;
-
-  const res = await fetch(url);
-  const data = await res.json();
-
-  if (!data.features || data.features.length === 0) {
-    throw new Error("Adresse konnte nicht gefunden werden.");
-  }
-
-  return data.features[0].geometry.coordinates;
-}
-
-async function route(origin, destination) {
-  const res = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
-    method: "POST",
-    headers: {
-      "Authorization": ORS_API_KEY,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      coordinates: [origin, destination]
-    })
+async function route(origin, dest){
+  const r = await fetch("https://api.openrouteservice.org/v2/directions/driving-car",{
+    method:"POST",
+    headers:{ "Authorization": ORS_API_KEY, "Content-Type":"application/json" },
+    body: JSON.stringify({ coordinates:[origin,dest] })
   });
-
-  const data = await res.json();
-
-  if (data.error) {
-    throw new Error(data.error.message || "Routing-Fehler von OpenRouteService.");
-  }
-
-  const props = data.features?.[0]?.properties;
-  const summary = props?.summary;
-
-  if (!summary) {
-    throw new Error("Route konnte nicht ausgewertet werden.");
-  }
-
-  return {
-    distance_km: summary.distance / 1000,
-    duration_min: summary.duration / 60
-  };
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok || d?.error) throw new Error(d?.error?.message || "Routing-Fehler.");
+  const p = d?.features?.[0]?.properties;
+  const seg = p?.segments?.[0];
+  const sum = p?.summary;
+  const dist = (seg?.distance ?? sum?.distance);
+  const dur  = (seg?.duration ?? sum?.duration);
+  if(dist==null || dur==null) throw new Error("Route konnte nicht ausgewertet werden.");
+  return { km: dist/1000, min: dur/60 };
 }
 
-/* ==========================
-   HAUPTFUNKTION
-   ========================== */
-
-async function calculate() {
-  const address = document.getElementById("address").value.trim();
-  if (!address) {
-    showError("Bitte eine Adresse eingeben.");
-    return;
+// =====================
+// HAUPT
+// =====================
+document.getElementById('go').onclick = async ()=>{
+  const a = document.getElementById('addr').value.trim();
+  if(!a){ show("Bitte Adresse eingeben."); return; }
+  show("Route wird berechnet …");
+  try{
+    const dest = await geocode(a);
+    const r = await route(ORIGIN, dest);
+    if(r.km > 400){
+      openModal();
+      show(`Entfernung: ${r.km.toFixed(1)} km\nFahrzeit (einfach): ${r.min.toFixed(0)} min`);
+      return;
+    }
+    show(`Entfernung: ${r.km.toFixed(1)} km\nFahrzeit (einfach): ${r.min.toFixed(0)} min\n\nAnfahrtskosten gemäß Zone.`);
+  }catch(e){
+    show("Fehler: " + e.message);
   }
-
-  showResult("Route wird berechnet …");
-
-  try {
-    const destination = await geocode(address);
-    const result = await route(ORIGIN, destination);
-
-    const km = result.distance_km;
-
-    let priceText = "";
-    if (km <= 50) priceText = "Anfahrtskosten (Zone 1)";
-    else if (km <= 100) priceText = "Anfahrtskosten (Zone 2)";
-    else if (km <= 200) priceText = "Anfahrtskosten (Zone 3)";
-    else if (km <= 400) priceText = "Anfahrtskosten (Zone 4)";
-    else priceText = "Bitte kontaktieren Sie uns für ein individuelles Angebot.";
-
-    showResult(
-      `Entfernung: ${km.toFixed(1)} km\n` +
-      `Fahrzeit (einfach): ${result.duration_min.toFixed(0)} Minuten\n\n` +
-      priceText
-    );
-  } catch (err) {
-    showError(err.message);
-  }
-}
+};
 </script>
 </body>
 </html>
