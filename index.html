@@ -173,17 +173,23 @@ async function routeORS(originLonLat, destLonLat){
     body: JSON.stringify({ coordinates: [originLonLat, destLonLat] })
   });
   if (!res.ok) throw new Error("Routing fehlgeschlagen (" + res.status + ")");
-  const data = await res.json();
-  const seg = data?.features?.[0]?.properties?.segments?.[0];
-  if (!seg) throw new Error("Route konnte nicht ausgewertet werden.");
-  return { distance_m: seg.distance, duration_s: seg.duration };
-}
+    const data = await res.json();
 
-function showOutput(html, isBad=false){
-  const out = document.getElementById("out");
-  out.style.display = "block";
-  out.innerHTML = html;
-  out.style.color = isBad ? "#8a1f1f" : "#111";
+  const props = data?.features?.[0]?.properties;
+  const seg = props?.segments?.[0];
+  const sum = props?.summary;
+
+  const distance = seg?.distance ?? sum?.distance;
+  const duration  = seg?.duration  ?? sum?.duration;
+
+  if (distance == null || duration == null) {
+    // Zeigt echte API-Fehlerdetails, falls vorhanden
+    const apiMsg = data?.error?.message || data?.message || JSON.stringify(data).slice(0, 300);
+    throw new Error("Route konnte nicht ausgewertet werden: " + apiMsg);
+  }
+
+  return { distance_m: distance, duration_s: duration };
+
 }
 
 function openContact(km, addr){
